@@ -90,7 +90,7 @@ func TestService_Card2Card(t *testing.T) {
 			from:   "3860 9743 2983 8638",
 			to:     "9037 2387 2990 1974",
 			amount: 10,
-		}, 0, false},
+		}, 5, false},
 	}
 	for _, tt := range tests {
 			s := &Service{
