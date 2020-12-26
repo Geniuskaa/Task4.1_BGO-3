@@ -42,7 +42,7 @@ func (s *Service) Card2Card(from, to string, amount int64) (total int64, ok bool
 				return amount, true
 			} else {
 				if amountInCents > s.fromTinkMinSum { // Проверяем больше ли сумма перевода чем минимальная по тарифу
-					total := int64(float64(amountInCents) * (1 + s.fromTinkPercent))
+					total := int64(float64(amountInCents) * (1.0 + s.fromTinkPercent / 100))
 					s.addTransaction(indexOfFrom, amount)
 					s.CardSvc.StoreOfCards[indexOfFrom].Balance -= total
 					return total / 100, true
@@ -62,7 +62,7 @@ func (s *Service) Card2Card(from, to string, amount int64) (total int64, ok bool
 	}
 
 	if amountInCents > s.otherCardsMinSum {
-		total := int64(float64(amountInCents) * (1 + s.otherCardsPercent))
+		total := int64(float64(amountInCents) * (1 + s.otherCardsPercent / 100))
 		return total / 100, true
 	}
 
