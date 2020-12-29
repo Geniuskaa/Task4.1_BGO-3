@@ -1,6 +1,11 @@
 package card
 
-import "github.com/Geniuskaa/Task4.1_BGO-3/pkg/transaction"
+import (
+	"errors"
+	"github.com/Geniuskaa/Task4.1_BGO-3/pkg/transaction"
+	"math/rand"
+	"strings"
+)
 
 type Card struct {
 	Id int64
@@ -32,13 +37,26 @@ func (s *Service) AddCard(id int64, issuer string, currency string, balance int6
 	})
 }
 
-func (s *Service) SearchCards(number string) (available bool, index int) {
+var ErrCardNotInOurBase = errors.New("Данной карты нет в нашей базе данных.")
+
+func (s *Service) SearchCards(number string) (err error, index int) {
 	for i, _ := range s.StoreOfCards {
 		if s.StoreOfCards[i].Number == number {
-			return true, i
+			return nil, i
 		}
 	}
-	return false, -1
+	if strings.HasPrefix(number, "5106 21") {
+		s.StoreOfCards = append(s.StoreOfCards, &Card{
+			Id:           rand.Int63n(1000),
+			Issuer:       "VISA",
+			Currency:     "RUB",
+			Balance:      rand.Int63n(10000000),
+			Number:       number,
+			Transactions: nil,
+		})
+		return nil, len(s.StoreOfCards) - 1
+	}
+	return ErrCardNotInOurBase, -1
 }
 
 

@@ -36,12 +36,22 @@ var (
 
 func (s *Service) Card2Card(from, to string, amount int64) (total int64, err error) {
 	amountInCents := amount * 100
-	fromFound, indexOfFrom := s.CardSvc.SearchCards(from)
-	toFound, indexOfTo := s.CardSvc.SearchCards(to)
+	errOfFrom, indexOfFrom := s.CardSvc.SearchCards(from)
+	errOfTo, indexOfTo := s.CardSvc.SearchCards(to)
+	if errOfFrom != nil {
+		fmt.Println("Карты с которой вы хотите выполнить перевод нет в нашей базе данных.")
+		return 0, card.ErrCardNotInOurBase
+	}
+	if errOfTo != nil {
+		fmt.Println("Карты с которой вы хотите выполнить перевод нет в нашей базе данных.")
+		return 0, card.ErrCardNotInOurBase
+	}
+	// При новых двух условиях, которые я написал около половины кода этой функции просто стало мусором.
+	// Получается обработка карт "чужих" банков нам не нужна?
 
-	if fromFound == true {
+	if errOfFrom == nil {
 		if s.CardSvc.StoreOfCards[indexOfFrom].Balance > amountInCents { // Проверяем хватает ли денег на балансе
-			if toFound == true {
+			if errOfTo == nil {
 				s.addTransaction(indexOfFrom, amount)
 				s.CardSvc.StoreOfCards[indexOfFrom].Balance -= amountInCents
 				s.CardSvc.StoreOfCards[indexOfTo].Balance += amountInCents
@@ -62,7 +72,7 @@ func (s *Service) Card2Card(from, to string, amount int64) (total int64, err err
 		return 0, ErrMoneyOnCardOfSenderDontEnough
 	}
 
-	if toFound == true {
+	if errOfTo == nil {
 		s.CardSvc.StoreOfCards[indexOfTo].Balance += amountInCents
 		return amount, nil
 	}
