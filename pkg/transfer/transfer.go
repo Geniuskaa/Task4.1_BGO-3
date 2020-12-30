@@ -42,23 +42,17 @@ func isValid(num string) error {
 	controlSum := int64(0)
 	sliceOfNums := strings.Split(num, "")
 	for i := 0; i < len(sliceOfNums); i++ {
+		value, err := strconv.ParseInt(sliceOfNums[i], 10, 64)
+		if err != nil {
+			return ErrInvalidCardNumber
+		}
 		if (i + 1) % 2 != 0 {
-			value, err := strconv.ParseInt(sliceOfNums[i], 10, 64)
-			if err != nil {
-				return ErrInvalidCardNumber
-			}
 			value *= 2
 			if value > 9 {
 				value -= 9
 			}
-			controlSum += value
-		}else {
-			value, err := strconv.ParseInt(sliceOfNums[i], 10, 64)
-			if err != nil {
-				return ErrInvalidCardNumber
-			}
-			controlSum += value
 		}
+		controlSum += value
 	}
 
 	if controlSum % 10 == 0 {
@@ -92,44 +86,20 @@ func (s *Service) Card2Card(from, to string, amount int64) (total int64, err err
 		fmt.Println("Карты с которой вы хотите выполнить перевод нет в нашей базе данных.")
 		return 0, card.ErrCardNotInOurBase
 	}
-	// При новых двух условиях, которые я написал около половины кода этой функции просто стало мусором.
-	// Получается обработка карт "чужих" банков нам не нужна?
 
-	if errOfFrom == nil {
-		if s.CardSvc.StoreOfCards[indexOfFrom].Balance > amountInCents { // Проверяем хватает ли денег на балансе
-			if errOfTo == nil {
-				s.addTransaction(indexOfFrom, amount)
-				s.CardSvc.StoreOfCards[indexOfFrom].Balance -= amountInCents
-				s.CardSvc.StoreOfCards[indexOfTo].Balance += amountInCents
-				return amount, nil
-			} else {
-				if amountInCents > s.fromTinkMinSum { // Проверяем больше ли сумма перевода чем минимальная по тарифу
-					total := int64(float64(amountInCents) * (1.0 + s.fromTinkPercent / 100))
-					s.addTransaction(indexOfFrom, amount)
-					s.CardSvc.StoreOfCards[indexOfFrom].Balance -= total
-					return total / 100, nil
-				} else {
-					fmt.Println("Слишком маленькая сумма перевода, введите сумму более 10 руб!")
-					return 0, ErrTooLowSumOfTransfer
-				}
-			}
+	if s.CardSvc.StoreOfCards[indexOfFrom].Balance > amountInCents { // Проверяем хватает ли денег на балансе
+		if amountInCents > s.fromTinkMinSum {
+			s.addTransaction(indexOfFrom, amount)
+			s.CardSvc.StoreOfCards[indexOfFrom].Balance -= amountInCents
+			s.CardSvc.StoreOfCards[indexOfTo].Balance += amountInCents
+			return amount, nil
+		} else {
+			fmt.Println("Слишком маленькая сумма перевода, введите сумму более 10 руб!")
+			return 0, ErrTooLowSumOfTransfer
 		}
-		fmt.Println("Недостаточно средств на балансе вашей карты.")
-		return 0, ErrMoneyOnCardOfSenderDontEnough
 	}
-
-	if errOfTo == nil {
-		s.CardSvc.StoreOfCards[indexOfTo].Balance += amountInCents
-		return amount, nil
-	}
-
-	if amountInCents > s.otherCardsMinSum {
-		total := int64(float64(amountInCents) * (1 + s.otherCardsPercent / 100))
-		return total / 100, nil
-	}
-
-	fmt.Println("Сумма перевода меньше минимального значения! Перевод невозможен.")
-	return 0, ErrTooLowSumOfTransfer
+	fmt.Println("Недостаточно средств на балансе вашей карты.")
+	return 0, ErrMoneyOnCardOfSenderDontEnough
 }
 
 func (s *Service) addTransaction(index int, amount int64) {
