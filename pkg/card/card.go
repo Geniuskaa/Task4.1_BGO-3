@@ -39,6 +39,8 @@ func (s *Service) AddCard(id int64, issuer string, currency string, balance int6
 
 var ErrCardNotInOurBase = errors.New("Данной карты нет в нашей базе данных.")
 
+
+
 func (s *Service) SearchCards(number string) (err error, index int) {
 	for i, _ := range s.StoreOfCards {
 		if s.StoreOfCards[i].Number == number {

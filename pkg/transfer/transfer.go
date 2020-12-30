@@ -6,6 +6,8 @@ import (
 	"github.com/Geniuskaa/Task4.1_BGO-3/pkg/card"
 	"github.com/Geniuskaa/Task4.1_BGO-3/pkg/transaction"
 	"math/rand"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -32,9 +34,53 @@ func NewService(cardSvc *card.Service, toTinPer float64, fromTinPer float64, fro
 var (
 	ErrMoneyOnCardOfSenderDontEnough = errors.New("На карте отправителя баланс меньше суммы перевода.")
 	ErrTooLowSumOfTransfer = errors.New("Слишком маленькая сумма перевода.")
+	ErrInvalidCardNumber = errors.New("Введены неверные данные карты.")
 )
 
+func isValid(num string) error {
+	num = strings.ReplaceAll(num, " ", "")
+	controlSum := int64(0)
+	sliceOfNums := strings.Split(num, "")
+	for i := 0; i < len(sliceOfNums); i++ {
+		if (i + 1) % 2 != 0 {
+			value, err := strconv.ParseInt(sliceOfNums[i], 10, 64)
+			if err != nil {
+				return ErrInvalidCardNumber
+			}
+			value *= 2
+			if value > 9 {
+				value -= 9
+			}
+			controlSum += value
+		}else {
+			value, err := strconv.ParseInt(sliceOfNums[i], 10, 64)
+			if err != nil {
+				return ErrInvalidCardNumber
+			}
+			controlSum += value
+		}
+	}
+
+	if controlSum % 10 == 0 {
+		return nil
+	}
+
+	return ErrInvalidCardNumber
+}
+
 func (s *Service) Card2Card(from, to string, amount int64) (total int64, err error) {
+	errOfValidCardFrom := isValid(from)
+	if errOfValidCardFrom != nil {
+		fmt.Println("Введены некоректные данные карты.")
+		return 0, errOfValidCardFrom
+	}
+
+	errOfValidCardTo := isValid(from)
+	if errOfValidCardTo != nil {
+		fmt.Println("Введены некоректные данные карты.")
+		return 0, errOfValidCardFrom
+	}
+
 	amountInCents := amount * 100
 	errOfFrom, indexOfFrom := s.CardSvc.SearchCards(from)
 	errOfTo, indexOfTo := s.CardSvc.SearchCards(to)
