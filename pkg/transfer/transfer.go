@@ -1,10 +1,13 @@
 package transfer
 
 import (
+	"errors"
 	"fmt"
 	"github.com/Geniuskaa/Task4.1_BGO-3/pkg/card"
 	"github.com/Geniuskaa/Task4.1_BGO-3/pkg/transaction"
 	"math/rand"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -28,46 +31,75 @@ func NewService(cardSvc *card.Service, toTinPer float64, fromTinPer float64, fro
 	}
 }
 
-func (s *Service) Card2Card(from, to string, amount int64) (total int64, ok bool) {
-	amountInCents := amount * 100
-	fromFound, indexOfFrom := s.CardSvc.SearchCards(from)
-	toFound, indexOfTo := s.CardSvc.SearchCards(to)
+var (
+	ErrMoneyOnCardOfSenderDontEnough = errors.New("На карте отправителя баланс меньше суммы перевода.")
+	ErrTooLowSumOfTransfer = errors.New("Слишком маленькая сумма перевода.")
+	ErrInvalidCardNumber = errors.New("Введены неверные данные карты.")
+)
 
-	if fromFound == true {
-		if s.CardSvc.StoreOfCards[indexOfFrom].Balance > amountInCents { // Проверяем хватает ли денег на балансе
-			if toFound == true {
-				s.addTransaction(indexOfFrom, amount)
-				s.CardSvc.StoreOfCards[indexOfFrom].Balance -= amountInCents
-				s.CardSvc.StoreOfCards[indexOfTo].Balance += amountInCents
-				return amount, true
-			} else {
-				if amountInCents > s.fromTinkMinSum { // Проверяем больше ли сумма перевода чем минимальная по тарифу
-					total := int64(float64(amountInCents) * (1.0 + s.fromTinkPercent / 100))
-					s.addTransaction(indexOfFrom, amount)
-					s.CardSvc.StoreOfCards[indexOfFrom].Balance -= total
-					return total / 100, true
-				} else {
-					fmt.Println("Слишком маленькая сумма перевода, введите сумму более 10 руб!")
-					return 0, false
-				}
+func isValid(num string) error {
+	num = strings.ReplaceAll(num, " ", "")
+	controlSum := int64(0)
+	sliceOfNums := strings.Split(num, "")
+	for i := 0; i < len(sliceOfNums); i++ {
+		value, err := strconv.ParseInt(sliceOfNums[i], 10, 64)
+		if err != nil {
+			return ErrInvalidCardNumber
+		}
+		if (i + 1) % 2 != 0 {
+			value *= 2
+			if value > 9 {
+				value -= 9
 			}
 		}
-		fmt.Println("Недостаточно средств на балансе вашей карты.")
-		return 0, false
+		controlSum += value
 	}
 
-	if toFound == true {
-		s.CardSvc.StoreOfCards[indexOfTo].Balance += amountInCents
-		return amount, true
+	if controlSum % 10 == 0 {
+		return nil
 	}
 
-	if amountInCents > s.otherCardsMinSum {
-		total := int64(float64(amountInCents) * (1 + s.otherCardsPercent / 100))
-		return total / 100, true
+	return ErrInvalidCardNumber
+}
+
+func (s *Service) Card2Card(from, to string, amount int64) (total int64, err error) {
+	errOfValidCardFrom := isValid(from)
+	if errOfValidCardFrom != nil {
+		fmt.Println("Введены некоректные данные карты.")
+		return 0, errOfValidCardFrom
 	}
 
-	fmt.Println("Сумма перевода меньше минимального значения! Перевод невозможен.")
-	return 0, false
+	errOfValidCardTo := isValid(from)
+	if errOfValidCardTo != nil {
+		fmt.Println("Введены некоректные данные карты.")
+		return 0, errOfValidCardFrom
+	}
+
+	amountInCents := amount * 100
+	errOfFrom, indexOfFrom := s.CardSvc.SearchCards(from)
+	errOfTo, indexOfTo := s.CardSvc.SearchCards(to)
+	if errOfFrom != nil {
+		fmt.Println("Карты с которой вы хотите выполнить перевод нет в нашей базе данных.")
+		return 0, card.ErrCardNotInOurBase
+	}
+	if errOfTo != nil {
+		fmt.Println("Карты с которой вы хотите выполнить перевод нет в нашей базе данных.")
+		return 0, card.ErrCardNotInOurBase
+	}
+
+	if s.CardSvc.StoreOfCards[indexOfFrom].Balance > amountInCents { // Проверяем хватает ли денег на балансе
+		if amountInCents > s.fromTinkMinSum {
+			s.addTransaction(indexOfFrom, amount)
+			s.CardSvc.StoreOfCards[indexOfFrom].Balance -= amountInCents
+			s.CardSvc.StoreOfCards[indexOfTo].Balance += amountInCents
+			return amount, nil
+		} else {
+			fmt.Println("Слишком маленькая сумма перевода, введите сумму более 10 руб!")
+			return 0, ErrTooLowSumOfTransfer
+		}
+	}
+	fmt.Println("Недостаточно средств на балансе вашей карты.")
+	return 0, ErrMoneyOnCardOfSenderDontEnough
 }
 
 func (s *Service) addTransaction(index int, amount int64) {
